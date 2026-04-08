@@ -828,7 +828,10 @@ static void handle_delete_project(struct mg_connection *c, struct mg_http_messag
     db_path_for_project(name, db_path, sizeof(db_path));
 
     if (!cbm_file_exists(db_path)) {
-        mg_http_reply(c, 404, g_cors_json, "{\"error\":\"project not found\"}");
+        mg_http_reply(c, 404, g_cors_json,
+                      "{\"error\":\"project not found\","
+                      "\"hint\":\"Call index_repository with "
+                      "{\\\"repo_path\\\": \\\"/absolute/path/to/repo\\\"} to index it.\"}");
         return;
     }
 
@@ -912,7 +915,10 @@ static void handle_layout(struct mg_connection *c, struct mg_http_message *hm) {
     db_path_for_project(project, db_path, sizeof(db_path));
 
     if (!cbm_file_exists(db_path)) {
-        mg_http_reply(c, 404, g_cors_json, "{\"error\":\"project not found\"}");
+        mg_http_reply(c, 404, g_cors_json,
+                      "{\"error\":\"project not found\","
+                      "\"hint\":\"Call index_repository with "
+                      "{\\\"repo_path\\\": \\\"/absolute/path/to/repo\\\"} to index it.\"}");
         return;
     }
 

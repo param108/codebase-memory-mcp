@@ -774,12 +774,15 @@ static char *build_project_list_error(const char *reason) {
     if (count > 0) {
         snprintf(buf, sizeof(buf),
                  "{\"error\":\"%s\",\"hint\":\"Use list_projects to see all indexed projects, "
-                 "then pass the project name.\",\"available_projects\":[%s],\"count\":%d}",
+                 "then pass the project name. To index a new project, call "
+                 "index_repository with {\\\"repo_path\\\": \\\"/absolute/path/to/repo\\\"}.\","
+                 "\"available_projects\":[%s],\"count\":%d}",
                  reason, projects, count);
     } else {
         snprintf(buf, sizeof(buf),
                  "{\"error\":\"%s\",\"hint\":\"No projects indexed yet. "
-                 "Call index_repository first.\"}",
+                 "Call index_repository with {\\\"repo_path\\\": \\\"/absolute/path/to/repo\\\"} "
+                 "to index a project.\"}",
                  reason);
     }
     return heap_strdup(buf);
@@ -906,7 +909,9 @@ static char *verify_project_indexed(cbm_store_t *store, const char *project) {
     cbm_project_t proj_check = {0};
     if (cbm_store_get_project(store, project, &proj_check) != CBM_STORE_OK) {
         return cbm_mcp_text_result(
-            "{\"error\":\"project not indexed — run index_repository first\"}", true);
+            "{\"error\":\"project not indexed — call index_repository with "
+            "{\\\"repo_path\\\": \\\"/absolute/path/to/repo\\\"} to index it\"}",
+            true);
     }
     cbm_project_free_fields(&proj_check);
     return NULL;
@@ -1220,7 +1225,11 @@ static char *handle_index_status(cbm_mcp_server_t *srv, const char *args) {
 static char *handle_delete_project(cbm_mcp_server_t *srv, const char *args) {
     char *name = cbm_mcp_get_string_arg(args, "project");
     if (!name) {
-        return cbm_mcp_text_result("project is required", true);
+        return cbm_mcp_text_result(
+            "project is required. Use list_projects to see indexed projects, "
+            "or call index_repository with {\"repo_path\": \"/absolute/path/to/repo\"} "
+            "to index a new project.",
+            true);
     }
 
     /* Close store if it's the project being deleted */

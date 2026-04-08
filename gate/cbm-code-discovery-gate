@@ -1,0 +1,37 @@
+#!/bin/bash
+# Gate hook: nudges Claude toward codebase-memory-mcp for code discovery.
+# Reads hook JSON from stdin, extracts session_id + tool_name + tool_input
+# to form a unique key. If the same request comes within 5 seconds (retry),
+# allow it through. Otherwise block with guidance message.
+
+# Read JSON from stdin
+INPUT=$(cat)
+
+# Extract fields and build a unique key
+SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // empty')
+TOOL_NAME=$(echo "$INPUT" | jq -r '.tool_name // empty')
+TOOL_INPUT=$(echo "$INPUT" | jq -r '.tool_input // empty' | jq -Sc '.')
+
+KEY_RAW="${SESSION_ID}:${TOOL_NAME}:${TOOL_INPUT}"
+KEY_HASH=$(echo -n "$KEY_RAW" | md5sum | cut -d' ' -f1)
+GATE_FILE="/tmp/cbm-gate-${KEY_HASH}"
+
+NOW=$(date +%s)
+
+if [ -f "$GATE_FILE" ]; then
+    STORED_TS=$(cat "$GATE_FILE")
+    DIFF=$((NOW - STORED_TS))
+    if [ "$DIFF" -le 5 ] 2>/dev/null; then
+        # Retry within 5 seconds — allow and refresh timestamp
+        echo "$NOW" > "$GATE_FILE"
+        exit 0
+    else
+        # Stale — remove and block
+        rm -f "$GATE_FILE"
+    fi
+fi
+
+# First attempt or stale — write timestamp and block
+echo "$NOW" > "$GATE_FILE"
+echo 'BLOCKED: For code discovery, use codebase-memory-mcp tools first: search_graph(name_pattern) to find functions/classes, trace_call_path() for call chains, get_code_snippet(qualified_name) to read source. If the graph is not indexed yet, call index_repository first. Fall back to Grep/Glob/Read only for text content search. If you retry within 5 seconds the gate will pass' >&2
+exit 2
